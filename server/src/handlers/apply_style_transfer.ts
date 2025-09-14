@@ -1,31 +1,47 @@
+import { db } from '../db';
+import { aiOperationsTable, imagesTable } from '../db/schema';
 import { type StyleTransferInput, type AIOperation } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function applyStyleTransfer(input: StyleTransferInput): Promise<AIOperation> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to:
-    // 1. Create an AI operation record in the database with 'pending' status
-    // 2. Queue the style transfer task for processing
-    // 3. Use AI models (like DALL-E 2, Stable Diffusion, or ControlNet) to apply artistic styles
-    // 4. Process the prompt to understand the desired style (e.g., "watercolor painting", "oil painting", "sketch")
-    // 5. Transform the entire image according to the specified artistic style
-    // 6. Update the operation status during processing
-    // 7. Save the stylized result image and update the operation record
-    // 8. Return the created operation record
-    
+export const applyStyleTransfer = async (input: StyleTransferInput): Promise<AIOperation> => {
+  try {
+    // Verify that the referenced image exists
+    const existingImage = await db.select()
+      .from(imagesTable)
+      .where(eq(imagesTable.id, input.image_id))
+      .execute();
+
+    if (existingImage.length === 0) {
+      throw new Error(`Image with id ${input.image_id} not found`);
+    }
+
+    // Prepare parameters JSON string
     const parametersJson = input.parameters ? JSON.stringify(input.parameters) : null;
-    
-    return Promise.resolve({
-        id: 2, // Placeholder ID
+
+    // Insert AI operation record with pending status
+    const result = await db.insert(aiOperationsTable)
+      .values({
         image_id: input.image_id,
         operation_type: 'style_transfer',
         status: 'pending',
         prompt: input.prompt,
-        mask_data: null, // Style transfer typically applies to the entire image
+        mask_data: null, // Style transfer applies to entire image, no mask needed
         parameters: parametersJson,
         result_image_path: null, // Will be set when processing completes
         error_message: null,
-        processing_time: null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as AIOperation);
-}
+        processing_time: null // Will be set when processing completes
+      })
+      .returning()
+      .execute();
+
+    // Convert numeric fields if any (processing_time is real type)
+    const operation = result[0];
+    return {
+      ...operation,
+      processing_time: operation.processing_time ? parseFloat(operation.processing_time.toString()) : null
+    };
+  } catch (error) {
+    console.error('Style transfer operation creation failed:', error);
+    throw error;
+  }
+};

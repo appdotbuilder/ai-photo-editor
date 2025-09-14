@@ -1,17 +1,46 @@
+import { db } from '../db';
+import { projectsTable } from '../db/schema';
 import { type ListProjectsInput, type Project } from '../schema';
+import { eq, count } from 'drizzle-orm';
 
 export async function listProjects(input: ListProjectsInput): Promise<{ projects: Project[], total: number }> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to:
-    // 1. Query the database for projects based on the input criteria
-    // 2. Apply pagination using limit and offset
-    // 3. Filter for public projects only if public_only is true
-    // 4. Return both the projects array and total count for pagination
-    // 5. Include basic project information and metadata
-    // This allows users to browse available projects and manage their own projects
-    
-    return Promise.resolve({
-        projects: [],
-        total: 0
-    });
+  try {
+    // Build queries conditionally based on filters
+    if (input.public_only) {
+      // Query with public filter
+      const [projects, totalResult] = await Promise.all([
+        db.select()
+          .from(projectsTable)
+          .where(eq(projectsTable.is_public, true))
+          .limit(input.limit)
+          .offset(input.offset)
+          .execute(),
+        db.select({ count: count() })
+          .from(projectsTable)
+          .where(eq(projectsTable.is_public, true))
+          .execute()
+      ]);
+
+      const total = totalResult[0]?.count ?? 0;
+      return { projects, total };
+    } else {
+      // Query without filters
+      const [projects, totalResult] = await Promise.all([
+        db.select()
+          .from(projectsTable)
+          .limit(input.limit)
+          .offset(input.offset)
+          .execute(),
+        db.select({ count: count() })
+          .from(projectsTable)
+          .execute()
+      ]);
+
+      const total = totalResult[0]?.count ?? 0;
+      return { projects, total };
+    }
+  } catch (error) {
+    console.error('List projects failed:', error);
+    throw error;
+  }
 }

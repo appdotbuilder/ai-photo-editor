@@ -1,23 +1,39 @@
+import { db } from '../db';
+import { imagesTable } from '../db/schema';
 import { type UploadImageInput, type Image } from '../schema';
 
-export async function uploadImage(input: UploadImageInput): Promise<Image> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to:
-    // 1. Validate the uploaded image file
-    // 2. Store the image metadata in the database
-    // 3. Save the image file to the file system or cloud storage
-    // 4. Return the created image record
-    
-    return Promise.resolve({
-        id: 1, // Placeholder ID
+export const uploadImage = async (input: UploadImageInput): Promise<Image> => {
+  try {
+    // Insert image record into database
+    const result = await db.insert(imagesTable)
+      .values({
         filename: input.filename,
         original_filename: input.original_filename,
         file_path: input.file_path,
         file_size: input.file_size,
         mime_type: input.mime_type,
         width: input.width,
-        height: input.height,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Image);
-}
+        height: input.height
+      })
+      .returning()
+      .execute();
+
+    // Return the created image record
+    const image = result[0];
+    return {
+      id: image.id,
+      filename: image.filename,
+      original_filename: image.original_filename,
+      file_path: image.file_path,
+      file_size: image.file_size,
+      mime_type: image.mime_type,
+      width: image.width,
+      height: image.height,
+      created_at: image.created_at,
+      updated_at: image.updated_at
+    };
+  } catch (error) {
+    console.error('Image upload failed:', error);
+    throw error;
+  }
+};

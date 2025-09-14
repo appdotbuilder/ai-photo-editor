@@ -1,13 +1,32 @@
+import { db } from '../db';
+import { projectsTable } from '../db/schema';
 import { type Project } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export async function getProject(projectId: number): Promise<Project | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to:
-    // 1. Query the database for the project with the given ID
-    // 2. Include related image information if needed
-    // 3. Return the project record if found, null otherwise
-    // 4. Handle proper error cases for invalid project IDs
-    // This allows users to load their saved projects for continued editing
+  try {
+    // Query the database for the project with the given ID
+    const results = await db.select()
+      .from(projectsTable)
+      .where(eq(projectsTable.id, projectId))
+      .execute();
+
+    // Return the project if found, null otherwise
+    if (results.length === 0) {
+      return null;
+    }
+
+    const project = results[0];
     
-    return Promise.resolve(null);
+    // Return the project record with proper type conversion
+    return {
+      ...project,
+      // Convert date fields if needed
+      created_at: project.created_at,
+      updated_at: project.updated_at
+    };
+  } catch (error) {
+    console.error('Project retrieval failed:', error);
+    throw error;
+  }
 }
